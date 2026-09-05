@@ -1,6 +1,8 @@
+# Renamed and modified from ros_gz_example_description in
+# ros_gz_project_template (Apache 2.0) for the deskpet project.
 cmake_minimum_required(VERSION 3.5)
 
-project(ros_gz_example_description)
+project(deskpet_description)
 
 find_package(ament_cmake REQUIRED)
 

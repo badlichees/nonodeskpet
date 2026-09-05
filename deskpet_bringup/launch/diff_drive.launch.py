@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Modified from ros_gz_example_bringup in ros_gz_project_template
+# Renamed and modified from ros_gz_example_bringup in ros_gz_project_template
 # for the deskpet project.
 
 import os
@@ -33,8 +33,8 @@ def generate_launch_description():
     # Configure ROS nodes for launch
 
     # Setup project paths
-    pkg_project_bringup = get_package_share_directory('ros_gz_example_bringup')
-    pkg_project_description = get_package_share_directory('ros_gz_example_description')
+    pkg_project_bringup = get_package_share_directory('deskpet_bringup')
+    pkg_project_description = get_package_share_directory('deskpet_description')
     pkg_ros_gz_sim = get_package_share_directory('ros_gz_sim')
 
     # Load the SDF file from "description" package
