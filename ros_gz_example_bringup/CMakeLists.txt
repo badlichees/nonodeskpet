@@ -1,10 +1,11 @@
+# Modified from ros_gz_example_bringup in ros_gz_project_template (Apache 2.0)
+# for the deskpet project.
 cmake_minimum_required(VERSION 3.5)
 
 project(ros_gz_example_bringup)
 
 find_package(ament_cmake REQUIRED)
 find_package(ros_gz_example_description REQUIRED)
-find_package(ros_gz_example_gazebo REQUIRED)
 
 # Install project launch files
 install(
@@ -18,6 +19,13 @@ install(
   DIRECTORY
     config/
   DESTINATION share/${PROJECT_NAME}/config
+)
+
+# Install world files
+install(
+  DIRECTORY
+    worlds/
+  DESTINATION share/${PROJECT_NAME}/worlds
 )
 
 if(BUILD_TESTING)
