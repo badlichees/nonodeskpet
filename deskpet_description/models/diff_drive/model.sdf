@@ -1,4 +1,8 @@
 <?xml version="1.0" ?>
+<!--
+  Modified from ros_gz_example_description/models/diff_drive/model.sdf in
+  ros_gz_project_template (Apache 2.0) for the deskpet project.
+-->
 <sdf version="1.8">
     <model name='diff_drive'>
       <link name='chassis'>
@@ -161,18 +165,18 @@
             </box>
           </geometry>
         </visual>
-        <sensor name='gpu_lidar' type='gpu_lidar'>
+        <sensor name='tof' type='gpu_lidar'>
           <pose>0 0 0 0 0 0</pose>
-          <topic>scan</topic>
+          <topic>tof</topic>
            <gz_frame_id>diff_drive/lidar_link</gz_frame_id>
           <update_rate>10</update_rate>
           <lidar>
             <scan>
               <horizontal>
-                <samples>640</samples>
+                <samples>1</samples>
                 <resolution>1</resolution>
-                <min_angle>-1.396263</min_angle>
-                <max_angle>1.396263</max_angle>
+                <min_angle>0</min_angle>
+                <max_angle>0</max_angle>
               </horizontal>
               <vertical>
                 <samples>1</samples>
@@ -182,18 +186,39 @@
               </vertical>
             </scan>
             <range>
-              <min>0.08</min>
-              <max>10.0</max>
-              <resolution>0.01</resolution>
+              <min>0.03</min>
+              <max>2.0</max>
+              <resolution>0.001</resolution>
             </range>
           </lidar>
           <visualize>true</visualize>
         </sensor>
       </link>
 
+      <link name="imu_link">
+        <pose>0 0 0.02 0 0 0</pose>
+        <inertial>
+          <mass>0.002</mass>
+          <inertia>
+            <ixx>0.0000001</ixx>
+            <iyy>0.0000001</iyy>
+            <izz>0.0000001</izz>
+          </inertia>
+        </inertial>
+        <sensor name='imu' type='imu'>
+          <topic>imu</topic>
+          <update_rate>50</update_rate>
+        </sensor>
+      </link>
+
       <joint name='lidar_joint' type='fixed'>
         <parent>chassis</parent>
         <child>lidar_link</child>
+      </joint>
+
+      <joint name='imu_joint' type='fixed'>
+        <parent>chassis</parent>
+        <child>imu_link</child>
       </joint>
 
       <joint name='left_wheel_joint' type='revolute'>
