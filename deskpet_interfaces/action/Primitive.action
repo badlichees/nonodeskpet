@@ -1,0 +1,12 @@
+# Goal: 语义动作原语/基础Action指令
+# command 取值: move_forward | move_backward | turn_left | turn_right
+string command
+# 移动类为米，转向类为弧度，均为正值
+float64 value
+---
+# Result
+bool success
+string message
+---
+# Feedback: 完成进度 (0.0~1.0)
+float64 progress
