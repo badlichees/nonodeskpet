@@ -29,6 +29,10 @@
       filename="gz-sim-user-commands-system"
       name="gz::sim::systems::UserCommands">
     </plugin>
+    <plugin
+      filename="gz-sim-imu-system"
+      name="gz::sim::systems::Imu">
+    </plugin>
 
     <light name="sun" type="directional">
       <cast_shadows>true</cast_shadows>
@@ -73,7 +77,7 @@
 
     <model name="diff_drive">
       <self_collide>true</self_collide>
-      <pose>0 0 0.35 0 0 0</pose>
+      <pose>0 0 0.025 0 0 0</pose>
       <include merge="true">
         <uri>model://diff_drive</uri>
       </include>

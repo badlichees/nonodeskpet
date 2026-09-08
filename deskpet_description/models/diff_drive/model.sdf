@@ -1,23 +1,27 @@
 <?xml version="1.0" ?>
+<!--
+  Modified from ros_gz_example_description/models/diff_drive/model.sdf in
+  ros_gz_project_template (Apache 2.0) for the deskpet project.
+-->
 <sdf version="1.8">
     <model name='diff_drive'>
       <link name='chassis'>
-        <pose>-0.151427 -0 0.175 0 -0 0</pose>
+        <pose>-0.0113 -0 0.013 0 -0 0</pose>
         <inertial>
-          <mass>1.14395</mass>
+          <mass>0.3</mass>
           <inertia>
-            <ixx>0.126164</ixx>
+            <ixx>0.000184</ixx>
             <ixy>0</ixy>
             <ixz>0</ixz>
-            <iyy>0.416519</iyy>
+            <iyy>0.000607</iyy>
             <iyz>0</iyz>
-            <izz>0.481014</izz>
+            <izz>0.000702</izz>
           </inertia>
         </inertial>
         <visual name='visual_chassis'>
           <geometry>
             <box>
-              <size>2.01142 1 0.568726</size>
+              <size>0.15 0.0746 0.0424</size>
             </box>
           </geometry>
           <material>
@@ -29,29 +33,29 @@
         <collision name='collision_chassis'>
           <geometry>
             <box>
-              <size>2.01142 1 0.568726</size>
+              <size>0.15 0.0746 0.0424</size>
             </box>
           </geometry>
         </collision>
       </link>
 
       <link name='left_wheel'>
-        <pose>0.554283 0.625029 -0.025 -1.5707 0 0</pose>
+        <pose>0.0413 0.0466 -0.0019 -1.5707 0 0</pose>
         <inertial>
-          <mass>2</mass>
+          <mass>0.03</mass>
           <inertia>
-            <ixx>0.145833</ixx>
+            <ixx>0.000006</ixx>
             <ixy>0</ixy>
             <ixz>0</ixz>
-            <iyy>0.145833</iyy>
+            <iyy>0.000006</iyy>
             <iyz>0</iyz>
-            <izz>0.125</izz>
+            <izz>0.000006</izz>
           </inertia>
         </inertial>
         <visual name='visual_left_wheel'>
           <geometry>
             <sphere>
-              <radius>0.3</radius>
+              <radius>0.0224</radius>
             </sphere>
           </geometry>
           <material>
@@ -63,29 +67,29 @@
         <collision name='collision_left_wheel'>
           <geometry>
             <sphere>
-              <radius>0.3</radius>
+              <radius>0.0224</radius>
             </sphere>
           </geometry>
         </collision>
       </link>
 
       <link name='right_wheel'>
-        <pose>0.554282 -0.625029 -0.025 -1.5707 0 0</pose>
+        <pose>0.0413 -0.0466 -0.0019 -1.5707 0 0</pose>
         <inertial>
-          <mass>2</mass>
+          <mass>0.03</mass>
           <inertia>
-            <ixx>0.145833</ixx>
+            <ixx>0.000006</ixx>
             <ixy>0</ixy>
             <ixz>0</ixz>
-            <iyy>0.145833</iyy>
+            <iyy>0.000006</iyy>
             <iyz>0</iyz>
-            <izz>0.125</izz>
+            <izz>0.000006</izz>
           </inertia>
         </inertial>
         <visual name='visual_right_wheel'>
           <geometry>
             <sphere>
-              <radius>0.3</radius>
+              <radius>0.0224</radius>
             </sphere>
           </geometry>
           <material>
@@ -97,29 +101,29 @@
         <collision name='collision_right_wheel'>
           <geometry>
             <sphere>
-              <radius>0.3</radius>
+              <radius>0.0224</radius>
             </sphere>
           </geometry>
         </collision>
       </link>
 
       <link name='caster'>
-        <pose>-0.957138 -0 -0.125 0 -0 0</pose>
+        <pose>-0.0714 -0 -0.0093 0 -0 0</pose>
         <inertial>
-          <mass>1</mass>
+          <mass>0.01</mass>
           <inertia>
-            <ixx>0.1</ixx>
+            <ixx>0.0000009</ixx>
             <ixy>0</ixy>
             <ixz>0</ixz>
-            <iyy>0.1</iyy>
+            <iyy>0.0000009</iyy>
             <iyz>0</iyz>
-            <izz>0.1</izz>
+            <izz>0.0000009</izz>
           </inertia>
         </inertial>
         <visual name='visual_caster'>
           <geometry>
             <sphere>
-              <radius>0.2</radius>
+              <radius>0.0149</radius>
             </sphere>
           </geometry>
           <material>
@@ -131,48 +135,48 @@
         <collision name='collision_caster'>
           <geometry>
             <sphere>
-              <radius>0.2</radius>
+              <radius>0.0149</radius>
             </sphere>
           </geometry>
         </collision>
       </link>
 
       <link name="lidar_link">
-        <pose>0 0 0.5 0 0 0</pose>
+        <pose>0 0 0.0373 0 0 0</pose>
         <inertial>
-          <mass>0.1</mass>
+          <mass>0.005</mass>
           <inertia>
-            <ixx>0.000166667</ixx>
-            <iyy>0.000166667</iyy>
-            <izz>0.000166667</izz>
+            <ixx>0.0000001</ixx>
+            <iyy>0.0000001</iyy>
+            <izz>0.0000001</izz>
           </inertia>
         </inertial>
         <collision name="collision">
           <geometry>
             <box>
-              <size>0.1 0.1 0.1</size>
+              <size>0.0075 0.0075 0.0075</size>
             </box>
           </geometry>
         </collision>
         <visual name="visual">
           <geometry>
             <box>
-              <size>0.1 0.1 0.1</size>
+              <size>0.0075 0.0075 0.0075</size>
             </box>
           </geometry>
         </visual>
-        <sensor name='gpu_lidar' type='gpu_lidar'>
+        <sensor name='tof' type='gpu_lidar'>
           <pose>0 0 0 0 0 0</pose>
-          <topic>scan</topic>
+          <topic>tof</topic>
            <gz_frame_id>diff_drive/lidar_link</gz_frame_id>
           <update_rate>10</update_rate>
           <lidar>
             <scan>
               <horizontal>
-                <samples>640</samples>
+                <samples>1</samples>
                 <resolution>1</resolution>
-                <min_angle>-1.396263</min_angle>
-                <max_angle>1.396263</max_angle>
+                <min_angle>0</min_angle>
+                <max_angle>0</max_angle>
               </horizontal>
               <vertical>
                 <samples>1</samples>
@@ -182,18 +186,39 @@
               </vertical>
             </scan>
             <range>
-              <min>0.08</min>
-              <max>10.0</max>
-              <resolution>0.01</resolution>
+              <min>0.03</min>
+              <max>2.0</max>
+              <resolution>0.001</resolution>
             </range>
           </lidar>
           <visualize>true</visualize>
         </sensor>
       </link>
 
+      <link name="imu_link">
+        <pose>0 0 0.02 0 0 0</pose>
+        <inertial>
+          <mass>0.002</mass>
+          <inertia>
+            <ixx>0.0000001</ixx>
+            <iyy>0.0000001</iyy>
+            <izz>0.0000001</izz>
+          </inertia>
+        </inertial>
+        <sensor name='imu' type='imu'>
+          <topic>imu</topic>
+          <update_rate>50</update_rate>
+        </sensor>
+      </link>
+
       <joint name='lidar_joint' type='fixed'>
         <parent>chassis</parent>
         <child>lidar_link</child>
+      </joint>
+
+      <joint name='imu_joint' type='fixed'>
+        <parent>chassis</parent>
+        <child>imu_link</child>
       </joint>
 
       <joint name='left_wheel_joint' type='revolute'>
@@ -230,8 +255,8 @@
         name="ignition::gazebo::systems::DiffDrive">
         <left_joint>left_wheel_joint</left_joint>
         <right_joint>right_wheel_joint</right_joint>
-        <wheel_separation>1.25</wheel_separation>
-        <wheel_radius>0.3</wheel_radius>
+        <wheel_separation>0.0932</wheel_separation>
+        <wheel_radius>0.0224</wheel_radius>
         <odom_publish_frequency>1</odom_publish_frequency>
         <max_linear_acceleration>1</max_linear_acceleration>
         <min_linear_acceleration>-1</min_linear_acceleration>
