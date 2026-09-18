@@ -8,12 +8,17 @@ reply（说的话）先打印，expression（表情）先打印，action（动�
 
 import asyncio
 import json
+import os
+import sys
+import tempfile
 import urllib.request
 
+import edge_tts
 import websockets
 
 LLAMA_URL = 'http://127.0.0.1:8080/v1/chat/completions'  # llama-server的OpenAI兼容接口
 RELAY_URL = 'ws://localhost:8765'  # relay_server的WebSocket地址
+VOICE = 'zh-CN-XiaoxiaoNeural'  # edge-tts的发音人，用edge-tts --list-voices可以看所有
 
 SYSTEM_PROMPT = """
 你是一个桌面宠物机器人。根据用户的话，输出JSON：\
@@ -97,6 +102,27 @@ def ask_llm(user_text):
     return json.loads(content)
 
 
+async def speak(text):
+    """edge-tts在线生成语音（要联网），保存成临时mp3后用mpv播放"""
+    # 先在磁盘上占一个临时文件的位置（delete=False是因为mpv要自己打开这个文件）
+    with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as f:
+        path = f.name
+    try:
+        # 把文本发给微软的语音服务，返回的音频存进临时文件
+        await edge_tts.Communicate(text, VOICE).save(path)
+        # 启动mpv播放，--really-quiet让它不在终端打印信息，await等它播完再继续
+        proc = await asyncio.create_subprocess_exec('mpv', '--really-quiet', path)
+        try:
+            await proc.wait()
+        except asyncio.CancelledError:
+            # 程序被打断时，把还在播的mpv一起带走，不然退出后声音还在放
+            proc.kill()
+            raise
+    finally:
+        # 不管播放成功还是失败，临时文件都删掉
+        os.unlink(path)
+
+
 async def send_action(action):
     """把动作指令转发给relay_server，它是和小车执行层对接的唯一出口"""
     command = action['command']  # 从LLM的输出中取出动作指令
@@ -127,21 +153,40 @@ async def send_action(action):
 async def main():
     print('桌宠大脑已启动，直接打字聊天（Ctrl+C/Ctrl+D退出）')
 
+    # 把标准输入接进事件循环，这样等待输入本身就是异步的，Ctrl+C能立刻打断
+    loop = asyncio.get_running_loop()
+    reader = asyncio.StreamReader()
+    protocol = asyncio.StreamReaderProtocol(reader)
+    await loop.connect_read_pipe(lambda: protocol, sys.stdin)
+
     while True:
-        try:
-            # 异步调用input，因为input是阻塞的，所以放到线程池里跑
-            user_text = await asyncio.to_thread(input, '\n你: ')
-        except EOFError:  # Ctrl+D触发EOFError，也算退出
+        print('\n你: ', end='', flush=True)
+        # 异步等一行输入；Ctrl+D会读到EOF，readline返回空bytes，也算退出
+        line = await reader.readline()
+        if not line:
             break
 
+        user_text = line.decode().strip()
         # 无视空白输入
-        if not user_text.strip():
+        if not user_text:
             continue
 
-        # 与上面input同理，异步调用ask_llm
-        answer = await asyncio.to_thread(ask_llm, user_text)
+        # ask_llm是同步阻塞的（urllib），放到线程池里跑，避免卡住事件循环
+        # llama-server没启动或断网时报OSError，提示一下继续聊，不让程序直接崩
+        try:
+            answer = await asyncio.to_thread(ask_llm, user_text)
+        except OSError as e:
+            print(f'  [llm] 请求llama-server失败（它没在跑？）: {e}')
+            continue
 
         print(f'桌宠: {answer["reply"]}  [表情: {answer["expression"]}]')
+
+        # 语音播报失败（比如断网、没装mpv）不影响后面的动作执行，所以单独包一层try
+        # 只看edge-tts自己的异常（服务返回错误等）和OSError（断网、找不到mpv程序等）
+        try:
+            await speak(answer['reply'])
+        except (edge_tts.exceptions.EdgeTTSException, OSError) as e:
+            print(f'  [tts] 语音播报失败: {e}')
 
         # 如果有动作指令，就发给relay_server执行
         # 因其本身是异步的，所以直接await
@@ -154,4 +199,8 @@ async def main():
 
 
 if __name__ == '__main__':
-    asyncio.run(main())  # 带异步逻辑，所以用它启动
+    try:
+        asyncio.run(main())  # 带异步逻辑，所以用它启动
+    except KeyboardInterrupt:
+        # Ctrl+C退到这里，安静退出，不打印一堆报错
+        print('\n再见')
