@@ -9,15 +9,17 @@ reply（说的话）先打印，expression（表情）先打印，action（动�
 import asyncio
 import json
 import os
+import socket
 import sys
 import tempfile
-import urllib.request
 
+import aiohttp
 import edge_tts
 import websockets
 
 LLAMA_URL = 'http://127.0.0.1:8080/v1/chat/completions'  # llama-server的OpenAI兼容接口
 RELAY_URL = 'ws://localhost:8765'  # relay_server的WebSocket地址
+FACE_ADDR = ('127.0.0.1', 8766)  # 表情窗口的UDP地址，和face.py里的一致
 VOICE = 'zh-CN-XiaoxiaoNeural'  # edge-tts的发音人，用edge-tts --list-voices可以看所有
 
 SYSTEM_PROMPT = """
@@ -63,7 +65,7 @@ VALUE_RANGE = {
 }
 
 
-def ask_llm(user_text):
+async def ask_llm(user_text):
     """把用户的话发给llama-server，返回解析好的JSON字典"""
     # 要发送给llama-server的请求内容的字典
     payload = {
@@ -82,24 +84,16 @@ def ask_llm(user_text):
         'max_tokens': 128,
     }
 
-    req = urllib.request.Request(
-        # 告诉llama-server要寄到哪个地址
-        LLAMA_URL,
-        # 将payload字典变成JSON字符串再编码成bytes（因为HTTP传输的是字节流）
-        data=json.dumps(payload).encode(),
-        # 请求头，告诉llama-server发的是JSON
-        headers={'Content-Type': 'application/json'},
-    )
+    # 用aiohttp发异步POST请求：异步等待期间Ctrl+C能立刻打断
+    # 之前用urllib+线程池，线程里的阻塞等待打不断，退出时会卡住
+    # timeout是给整个请求的超时上限，防止llama-server卡住时一直等
+    timeout = aiohttp.ClientTimeout(total=60)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+        async with session.post(LLAMA_URL, json=payload) as resp:
+            data = await resp.json()  # resp是响应对象，data是它返回的JSON解析成的字典
 
-    # 发送请求并读取响应
-    # resp是HTTPResponse对象
-    # content是llama-server返回的JSON字符串
-    # with...as...会在结束时自动调用resp.close()，断开与llama-server的连接
-    with urllib.request.urlopen(req) as resp:
-        content = json.load(resp)['choices'][0]['message']['content']
-
-    # 将JSON字符串解析成Python字典并返回
-    return json.loads(content)
+    # 从OpenAI兼容格式里取出模型输出的JSON字符串，解析成字典返回
+    return json.loads(data['choices'][0]['message']['content'])
 
 
 async def speak(text):
@@ -159,6 +153,9 @@ async def main():
     protocol = asyncio.StreamReaderProtocol(reader)
     await loop.connect_read_pipe(lambda: protocol, sys.stdin)
 
+    # 给表情窗口发消息用的UDP套接字；UDP发了就不管，窗口没在跑也不报错
+    face_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
     while True:
         print('\n你: ', end='', flush=True)
         # 异步等一行输入；Ctrl+D会读到EOF，readline返回空bytes，也算退出
@@ -171,15 +168,18 @@ async def main():
         if not user_text:
             continue
 
-        # ask_llm是同步阻塞的（urllib），放到线程池里跑，避免卡住事件循环
-        # llama-server没启动或断网时报OSError，提示一下继续聊，不让程序直接崩
+        # llama-server没启动（OSError）或返回异常（aiohttp.ClientError）时
+        # 提示一下继续聊，不让程序直接崩
         try:
-            answer = await asyncio.to_thread(ask_llm, user_text)
-        except OSError as e:
+            answer = await ask_llm(user_text)
+        except (OSError, aiohttp.ClientError) as e:
             print(f'  [llm] 请求llama-server失败（它没在跑？）: {e}')
             continue
 
         print(f'桌宠: {answer["reply"]}  [表情: {answer["expression"]}]')
+
+        # 把表情名字丢给表情窗口换脸
+        face_sock.sendto(answer['expression'].encode(), FACE_ADDR)
 
         # 语音播报失败（比如断网、没装mpv）不影响后面的动作执行，所以单独包一层try
         # 只看edge-tts自己的异常（服务返回错误等）和OSError（断网、找不到mpv程序等）
