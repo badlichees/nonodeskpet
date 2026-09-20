@@ -1,9 +1,22 @@
 # SPDX-License-Identifier: Apache-2.0
 """
-把用户说的话变成小车的动作，也可以进行简单的聊天
+桌宠大脑：把用户说的话变成小车的动作，也可以进行简单的聊天
 
-流程：用户打字输入 → 发给本地的llama-server → 收到结构化JSON → 分发：
-reply（说的话）先打印，expression（表情）先打印，action（动作）发给relay_server执行
+两种运行方式：
+    默认（服务模式）：开WebSocket端口等Qt客户端连接，手机/电脑都能连
+    --cli（终端模式）：直接在终端里打字聊天，用于不依赖Qt的快速调试
+
+内部流程：收到一句话 → 发给本地的llama-server → 收到结构化JSON → 分发：
+reply（说的话）回报给用户并语音播报，expression（表情）丢给face.py窗口，
+action（动作）发给relay_server执行，执行结果也回报给用户
+
+服务模式收发JSON格式（type字段表示消息种类）：
+    Qt → brain  {"type": "chat", "text": "往前走两步"}                 用户说的一句话
+    brain → Qt  {"type": "reply", "text": "好呀", "expression": "happy"}  回复和表情
+    brain → Qt  {"type": "action", "command": "...", "value": 0.4}     LLM决定了要执行的动作
+    brain → Qt  {"type": "accepted"} / {"type": "rejected", ...}       relay受理/拒绝（转发）
+    brain → Qt  {"type": "result", "success": true, "message": "..."}  动作执行结果（转发）
+    brain → Qt  {"type": "error", "message": "..."}                    出错了（附原因）
 """
 
 import asyncio
@@ -20,6 +33,7 @@ import websockets
 LLAMA_URL = 'http://127.0.0.1:8080/v1/chat/completions'  # llama-server的OpenAI兼容接口
 RELAY_URL = 'ws://localhost:8765'  # relay_server的WebSocket地址
 FACE_ADDR = ('127.0.0.1', 8766)  # 表情窗口的UDP地址，和face.py里的一致
+LISTEN_PORT = 8767  # 服务模式监听的端口，Qt客户端连这个
 VOICE = 'zh-CN-XiaoxiaoNeural'  # edge-tts的发音人，用edge-tts --list-voices可以看所有
 
 SYSTEM_PROMPT = """
@@ -64,6 +78,12 @@ VALUE_RANGE = {
     'turn_right': (0.26, 3.14),
 }
 
+# 给表情窗口发消息用的UDP套接字
+_face_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+# 语音播报互斥锁（服务模式下来自不同客户端的回复可能同时想说话，排队一个个播）
+_speak_lock = asyncio.Lock()
+
 
 async def ask_llm(user_text):
     """把用户的话发给llama-server，返回解析好的JSON字典"""
@@ -85,7 +105,6 @@ async def ask_llm(user_text):
     }
 
     # 用aiohttp发异步POST请求：异步等待期间Ctrl+C能立刻打断
-    # 之前用urllib+线程池，线程里的阻塞等待打不断，退出时会卡住
     # timeout是给整个请求的超时上限，防止llama-server卡住时一直等
     timeout = aiohttp.ClientTimeout(total=60)
     async with aiohttp.ClientSession(timeout=timeout) as session:
@@ -117,8 +136,8 @@ async def speak(text):
         os.unlink(path)
 
 
-async def send_action(action):
-    """把动作指令转发给relay_server，它是和小车执行层对接的唯一出口"""
+async def send_action(action, report):
+    """把动作指令转发给relay_server执行，它是和小车执行层对接的唯一出口"""
     command = action['command']  # 从LLM的输出中取出动作指令
     lo, hi = VALUE_RANGE[command]  # 从VALUE_RANGE中取出动作指令的合法范围
     value = min(max(action['value'], lo), hi)  # 超出范围就夹回边界
@@ -132,20 +151,88 @@ async def send_action(action):
         # 等待relay_server响应要在连接断开之前，所以接收循环也在async with内部
         try:
             async with asyncio.timeout(10):
-                # 根据type执行不同的逻辑，如果是result就break退出循环
                 # async for ... in异步等待WebSocket的消息，raw是收到的原始字符串
+                # relay的受理/拒绝/结果消息原样转给客户端，是result就break退出循环
                 async for raw in ws:
                     msg = json.loads(raw)
                     if msg['type'] in ('accepted', 'rejected', 'result'):
-                        print(f'  [relay] {msg}')
+                        await report(msg)
                     if msg['type'] == 'result':
-                        break
+                        return
         except TimeoutError:
-            print('  [relay] 等待relay_server响应超过10秒，请检查是否连接正常')
+            await report({'type': 'error', 'message': '等待relay_server响应超过10秒'})
 
 
-async def main():
-    print('桌宠大脑已启动，直接打字聊天（Ctrl+C/Ctrl+D退出）')
+async def handle_chat(user_text, report):
+    """
+    处理一句用户输入：问LLM → 回复 → 换表情 → 语音播报 → 执行动作
+
+    report是一个异步函数，负责把过程消息送回给用户
+    （CLI模式下它打印到终端，服务模式下它发给Qt客户端）
+    """
+    # llama-server没启动（OSError）或返回异常（aiohttp.ClientError）时告诉用户，继续服务
+    try:
+        answer = await ask_llm(user_text)
+    except (OSError, aiohttp.ClientError) as e:
+        await report({'type': 'error', 'message': f'请求llama-server失败（它没在跑？）: {e}'})
+        return
+
+    await report({
+        'type': 'reply',
+        'text': answer['reply'],
+        'expression': answer['expression'],
+    })
+
+    # 把表情名字丢给表情窗口换脸
+    _face_sock.sendto(answer['expression'].encode(), FACE_ADDR)
+
+    # 语音播报失败（比如断网、没装mpv）不影响后面的动作执行，所以单独包一层try
+    # 只看edge-tts自己的异常（服务返回错误等）和OSError（断网、找不到mpv程序等）
+    try:
+        async with _speak_lock:
+            await speak(answer['reply'])
+    except (edge_tts.exceptions.EdgeTTSException, OSError) as e:
+        await report({'type': 'error', 'message': f'语音播报失败: {e}'})
+
+    # 如果有动作指令，就发给relay_server执行
+    if answer['action']:
+        await report({'type': 'action', **answer['action']})
+        try:
+            await send_action(answer['action'], report)
+        except OSError as e:
+            await report({'type': 'error', 'message': f'连接relay_server失败（它没在跑？）: {e}'})
+
+
+async def serve():
+    """开WebSocket端口，每个连上的客户端独立处理"""
+    async def ws_handler(ws):
+        """一个客户端连接的处理逻辑，每收到一条消息处理一次"""
+        print(f'客户端接入: {ws.remote_address}')
+        async for raw in ws:
+            try:
+                msg = json.loads(raw)
+            except json.JSONDecodeError:
+                await ws.send(json.dumps({'type': 'error', 'message': '非法JSON'}))
+                continue
+
+            if msg.get('type') == 'chat' and isinstance(msg.get('text'), str):
+                # report把消息发回这个客户端
+                # ensure_ascii=False让中文原样发出不转义
+                async def report(payload):
+                    await ws.send(json.dumps(payload, ensure_ascii=False))
+                await handle_chat(msg['text'], report)
+            else:
+                await ws.send(json.dumps({'type': 'error', 'message': '需要 {"type": "chat", "text": "..."}'}))
+
+    # 0.0.0.0表示接受任何网卡进来的连接（手机通过局域网也能连上）
+    async with websockets.serve(ws_handler, '0.0.0.0', LISTEN_PORT):
+        print(f'桌宠大脑服务已启动: ws://0.0.0.0:{LISTEN_PORT}（Ctrl+C退出）')
+        await asyncio.Future()  # 永久挂起，服务一直开着，直到Ctrl+C打断
+
+
+async def main_cli():
+    """终端模式：直接打字聊天"""
+    print('桌宠大脑（终端模式）已启动，直接打字聊天（Ctrl+C/Ctrl+D退出）')
 
     # 把标准输入接进事件循环，这样等待输入本身就是异步的，Ctrl+C能立刻打断
     loop = asyncio.get_running_loop()
@@ -153,8 +240,12 @@ async def main():
     protocol = asyncio.StreamReaderProtocol(reader)
     await loop.connect_read_pipe(lambda: protocol, sys.stdin)
 
-    # 给表情窗口发消息用的UDP套接字；UDP发了就不管，窗口没在跑也不报错
-    face_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    # 终端模式下的report，reply打印成对话格式，其他消息原样打印
+    async def report(msg):
+        if msg['type'] == 'reply':
+            print(f'桌宠: {msg["text"]}  [表情: {msg["expression"]}]')
+        else:
+            print(f'  [{msg["type"]}] {msg}')
 
     while True:
         print('\n你: ', end='', flush=True)
@@ -168,39 +259,15 @@ async def main():
         if not user_text:
             continue
 
-        # llama-server没启动（OSError）或返回异常（aiohttp.ClientError）时
-        # 提示一下继续聊，不让程序直接崩
-        try:
-            answer = await ask_llm(user_text)
-        except (OSError, aiohttp.ClientError) as e:
-            print(f'  [llm] 请求llama-server失败（它没在跑？）: {e}')
-            continue
-
-        print(f'桌宠: {answer["reply"]}  [表情: {answer["expression"]}]')
-
-        # 把表情名字丢给表情窗口换脸
-        face_sock.sendto(answer['expression'].encode(), FACE_ADDR)
-
-        # 语音播报失败（比如断网、没装mpv）不影响后面的动作执行，所以单独包一层try
-        # 只看edge-tts自己的异常（服务返回错误等）和OSError（断网、找不到mpv程序等）
-        try:
-            await speak(answer['reply'])
-        except (edge_tts.exceptions.EdgeTTSException, OSError) as e:
-            print(f'  [tts] 语音播报失败: {e}')
-
-        # 如果有动作指令，就发给relay_server执行
-        # 因其本身是异步的，所以直接await
-        if answer['action']:
-            print(f'  [动作] {answer["action"]}')
-            try:
-                await send_action(answer['action'])
-            except OSError as e:
-                print(f'  [relay] 连接失败（relay_server没在跑？）: {e}')
+        await handle_chat(user_text, report)
 
 
 if __name__ == '__main__':
     try:
-        asyncio.run(main())  # 带异步逻辑，所以用它启动
+        if '--cli' in sys.argv:
+            asyncio.run(main_cli())  # 终端模式
+        else:
+            asyncio.run(serve())  # 服务模式（默认）
     except KeyboardInterrupt:
         # Ctrl+C退到这里，安静退出，不打印一堆报错
         print('\n再见')
