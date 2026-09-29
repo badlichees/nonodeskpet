@@ -19,6 +19,7 @@ import rclpy
 import websockets
 from deskpet_interfaces.action import Primitive
 from rclpy.action import ActionClient
+from rclpy.executors import SingleThreadedExecutor
 from rclpy.node import Node
 from rclpy.signals import SignalHandlerOptions
 
@@ -184,8 +185,13 @@ def main(args=None):
     rclpy.init(args=args, signal_handler_options=SignalHandlerOptions.NO)
     node = RelayServer()
     thread = node.start_ws_server()
+    executor = SingleThreadedExecutor()
+    executor.add_node(node)
     try:
-        rclpy.spin(node)  # 主线程交给ROS，循环处理action的答复/进度/结果回调
+        # rclpy.spin(node)内部是不带超时的死等，等待期间Python处理不了Ctrl+C
+        # spin_once设0.5秒超时，每转一圈回到Python检查一次信号，Ctrl+C最多延迟0.5秒生效
+        while rclpy.ok():
+            executor.spin_once(timeout_sec=0.5)
     except KeyboardInterrupt:
         pass
     finally:

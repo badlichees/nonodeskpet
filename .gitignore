@@ -5,6 +5,7 @@ log/
 
 ##### Python ##### 
 __pycache__/
+.venv/
 *.py[cod]
 *.egg-info/
 .pytest_cache/

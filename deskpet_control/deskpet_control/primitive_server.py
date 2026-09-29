@@ -140,8 +140,11 @@ def main(args=None):
     executor.add_node(node)
     # 启动执行循环，自己检测ctrl+c信号
     # 收到后会跳出循环，最后在finally里发一次零速再shutdown
+    # executor.spin()内部是不带超时的等待，等的时候Ctrl+C传不进来
+    # spin_once设0.5秒超时，每圈回到Python检查一次信号，Ctrl+C最多延迟0.5秒生效
     try:
-        executor.spin()
+        while rclpy.ok():
+            executor.spin_once(timeout_sec=0.5)
     except KeyboardInterrupt:
         pass
     finally:
