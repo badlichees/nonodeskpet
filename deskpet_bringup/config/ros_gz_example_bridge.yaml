@@ -1,3 +1,5 @@
+# Modified from ros_gz_example_bringup/config/ros_gz_example_bridge.yaml in
+# ros_gz_project_template (Apache 2.0) for the deskpet project.
 ---
 - ros_topic_name: "/diff_drive/cmd_vel"
   gz_topic_name: "/model/diff_drive/cmd_vel"
@@ -14,10 +16,15 @@
   ros_type_name: "nav_msgs/msg/Odometry"
   gz_type_name: "gz.msgs.Odometry"
   direction: GZ_TO_ROS
-- ros_topic_name: "/diff_drive/scan"
-  gz_topic_name: "/scan"
+- ros_topic_name: "/diff_drive/tof"
+  gz_topic_name: "/tof"
   ros_type_name: "sensor_msgs/msg/LaserScan"
   gz_type_name: "gz.msgs.LaserScan"
+  direction: GZ_TO_ROS
+- ros_topic_name: "/diff_drive/imu"
+  gz_topic_name: "/imu"
+  ros_type_name: "sensor_msgs/msg/Imu"
+  gz_type_name: "gz.msgs.IMU"
   direction: GZ_TO_ROS
 - ros_topic_name: "/joint_states"
   gz_topic_name: "/world/demo/model/diff_drive/joint_state"

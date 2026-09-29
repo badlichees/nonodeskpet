@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>deskpet_bringup</name>
+  <version>0.0.0</version>
+  <description>Contains launch files for the deskpet project</description>
+  <!-- Renamed and modified from ros_gz_example_bringup in
+       ros_gz_project_template (Apache 2.0) for the deskpet project. -->
+  <maintainer email="liuzhili86@gmail.com">Liu Zhili</maintainer>
+  <license>Apache 2.0</license>
+  <author>Michael Carroll</author>
+  <author>Dharini Dutia</author>
+  <author>Liu Zhili</author>
+
+  <depend>joint_state_publisher_gui</depend>
+
+  <depend>ros_gz</depend>
+  <depend>sdformat_urdf</depend>
+  <depend>deskpet_description</depend>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

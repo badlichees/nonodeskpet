@@ -5,6 +5,7 @@ log/
 
 ##### Python ##### 
 __pycache__/
+.venv/
 *.py[cod]
 *.egg-info/
 .pytest_cache/
@@ -37,3 +38,7 @@ compile_commands.json
 *.swp
 *~
 .DS_Store
+
+##### Firmware #####
+.pio/
+secrets.h

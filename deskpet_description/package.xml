@@ -1,20 +1,16 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>ros_gz_example_bringup</name>
+  <name>deskpet_description</name>
   <version>0.0.0</version>
-  <description>Contains launch files for the ros_gz_example project</description>
-  <maintainer email="michael@openrobotics.org">Michael Carroll</maintainer>
+  <description>SDFormat description files for the deskpet project</description>
+  <!-- Renamed and modified from ros_gz_example_description in
+       ros_gz_project_template (Apache 2.0) for the deskpet project. -->
+  <maintainer email="liuzhili86@gmail.com">Liu Zhili</maintainer>
   <license>Apache 2.0</license>
   <author>Michael Carroll</author>
   <author>Dharini Dutia</author>
-
-  <depend>joint_state_publisher_gui</depend>
-
-  <depend>ros_gz</depend>
-  <depend>sdformat_urdf</depend>
-  <depend>ros_gz_example_description</depend>
-  <depend>ros_gz_example_gazebo</depend>
+  <author>Liu Zhili</author>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
@@ -24,4 +20,3 @@
     <build_type>ament_cmake</build_type>
   </export>
 </package>
-
