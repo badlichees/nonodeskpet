@@ -38,3 +38,7 @@ compile_commands.json
 *.swp
 *~
 .DS_Store
+
+##### Firmware #####
+.pio/
+secrets.h
